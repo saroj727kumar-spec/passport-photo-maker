@@ -1,0 +1,21 @@
+window.PPM={selectedPreset:null,bgColor:'#ffffff',files:[]};
+function toast(msg){const t=document.getElementById('toast');if(!t)return;t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',3200)}
+function applyTheme(){const th=localStorage.getItem('ppm_theme')||'light';document.documentElement.setAttribute('data-theme',th)}
+document.addEventListener('DOMContentLoaded',()=>{
+ applyTheme();
+ const tg=document.getElementById('themeToggle'); if(tg)tg.onclick=()=>{const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';localStorage.setItem('ppm_theme',cur);applyTheme()};
+ const hb=document.getElementById('hamburger'); const nav=document.getElementById('mainNav'); if(hb&&nav)hb.onclick=()=>nav.classList.toggle('open');
+ // tools: dimension checker, compressor, converters, dpi info
+ const dimFile=document.getElementById('dimFile'); if(dimFile)dimFile.onchange=e=>{const f=e.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{document.getElementById('dimResult').textContent=`${f.name}: ${img.naturalWidth} × ${img.naturalHeight} px, ${(f.size/1024).toFixed(1)} KB, type ${f.type}`;URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(f)};
+ const conv=document.getElementById('convFile'); if(conv)conv.onchange=async e=>{window._convFile=e.target.files[0];toast('File ready — choose a convert button')};
+ document.querySelectorAll('[data-convert]').forEach(b=>b.onclick=()=>convertImage(b.dataset.convert));
+ const comp=document.getElementById('compBtn'); if(comp)comp.onclick=()=>{const f=document.getElementById('compFile').files[0];if(!f)return toast('Choose an image first');const q=+document.getElementById('compQuality').value||0.7;processFile(f,'image/jpeg',q,'compressed.jpg')};
+ const dpiBtn=document.getElementById('dpiCalcBtn'); if(dpiBtn)dpiBtn.onclick=()=>{const w=+document.getElementById('dpiPx').value||0,mm=+document.getElementById('dpiMm').value||1;document.getElementById('dpiResult').textContent=`Approx ${(w/(mm/25.4)).toFixed(0)} DPI at that print size. DPI is metadata/print size — changing it alone does not add detail.`};
+ const clearBtn=document.getElementById('clearDataBtn'); if(clearBtn)clearBtn.onclick=()=>{localStorage.removeItem('ppm_custom_presets');toast('Temporary preferences cleared. Uploaded photos are not stored on a server.')};
+ const contact=document.getElementById('contactForm'); if(contact)contact.addEventListener('submit',e=>{e.preventDefault();toast('This form needs a backend or email service configured to send messages. No message was sent.');alert('Notice: This contact form is not connected to a backend/email service yet, so your message was NOT sent. Please configure Formspree, a server endpoint, or similar service first.')});
+});
+function processFile(file,type,quality,name){const img=new Image();img.onload=()=>{const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);c.toBlob(b=>downloadBlob(b,name),'image/jpeg'===type?type:type,quality);URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)}
+function convertImage(fmt){const f=window._convFile|| (document.getElementById('convFile')&&document.getElementById('convFile').files[0]);if(!f)return toast('Choose an image first');processFile(f,fmt,0.92,'converted.'+(fmt==='image/png'?'png':'jpg'))}
+function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+function imageToPdfFromFile(file){const img=new Image();img.onload=()=>{const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:'mm',format:'a4'});const pw=210,ph=297;const r=Math.min((pw-20)/ (img.naturalWidth/96*25.4),(ph-20)/(img.naturalHeight/96*25.4));const w=img.naturalWidth/96*25.4*r,h=img.naturalHeight/96*25.4*r;const c=document.createElement('canvas');c.width=img.naturalWidth;c.height=img.naturalHeight;c.getContext('2d').drawImage(img,0,0);pdf.addImage(c.toDataURL('image/jpeg',0.92),'JPEG',(pw-w)/2,(ph-h)/2,w,h);pdf.save('image.pdf');URL.revokeObjectURL(img.src)};img.src=URL.createObjectURL(file)}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='imgPdfBtn'){const f=document.getElementById('imgPdfFile').files[0];if(f)imageToPdfFromFile(f);else toast('Choose an image first')}});
